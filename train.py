@@ -4,20 +4,35 @@ from tqdm import tqdm
 from model import Doc_UNet
 from dataset import Dataset
 
-
-def Loss(nn.Module)
+class Loss(nn.Module):
     def __init__(self, coef: float=2.):
         super().__init__()
         self.coef = coef
         
     def forward(self, gt, pred):
-        ind = gt < 0
-        l1 = (pred[pred[ind] > 0] - 1).sum()
+        ind_gt = gt < 0
+        ind_pred = pred > 0
         
-        ind = gt > 0
-        l2 = (pred[ind] - gt[ind]).sum()
+        l1 = (pred[ind_gt & ind_pred] + 1).sum()
+        
+        ind_gt = ~ind_gt
+        l2 = (pred[ind_gt] - gt[ind_gt]).sum()
         
         return l2 + self.coef*l1
+
+def collate_fn(batch):
+
+    images = list()
+    masks = list()
+
+    for b in batch:
+        images.append(b[0])
+        masks.append(b[1])
+
+    images = torch.stack(images, dim=0)
+    masks = torch.stack(masks, dim=0)
+
+    return images, masks
     
 def train(model, optimizer, scheduler, dataloaders_dict, epochs, device):
     model.to(device)
@@ -43,35 +58,39 @@ def train(model, optimizer, scheduler, dataloaders_dict, epochs, device):
                         
                     loss_per_epoch += error
                     
-            print(epoch, phase, loss_per_epoch.mean())
+            print('Epoch:', epoch, 'Phase:', phase, 'Loss:', loss_per_epoch.mean())
         
         if phase == 'train':
             torch.save(model.state_dict(), f'models/{epoch}.pth')
             
 def main():
-    os.mkdirs('models', exist_ok=True)
+    os.makedirs('models', exist_ok=True)
     
-    model = Doc_UNet()
-    device = torch.device("cuda:0" if torch.cuda.is_available() else 'cpu')
+    model = Doc_UNet(3, 2)
+    device = torch.device("cuda:1" if torch.cuda.is_available() else 'cpu')
     optimizer = torch.optim.Adam(
         [p for p in model.parameters() if p.requires_grad], 
         lr=1e-3, weight_decay = 1e-3, amsgrad=True)
-    scheduler = torch.optim.lr_scheduler.StepLR(optim, step_size=3, gamma=0.5)
-    dataset = Dataset('dataset')
+    scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=3, gamma=0.5)
+    dataset = Dataset('dataset/0')
     
     train_dataset, val_dataset = torch.utils.data.random_split(
         dataset,
-        [int(len(data)*0.8), int(len(data)*0.2)]
+        [int(len(dataset)*0.8), len(dataset) - int(len(dataset)*0.8)]
     )
     
     dataset = {'train': train_dataset, 'val': val_dataset}
     dataloader = {
         phase: torch.utils.data.DataLoader(
             dataset[phase], 
-            batch_size = 4, 
+            batch_size = 1, 
             shuffle = True, 
-            drop_last = True, 
-            collate_fn = lambda batch: tuple(zip(*batch))) 
+            drop_last = True,
+            collate_fn=collate_fn,
+            num_workers=1,
+            pin_memory=False,
+        )
+        
         for phase in dataset}
     
     train(model, optimizer, scheduler, dataloader, 10, device)

@@ -1,3 +1,4 @@
+import torch
 from torch import nn
 from torch.nn import functional as F
 
@@ -8,10 +9,10 @@ class double_conv(nn.Module):
         self.conv = nn.Sequential(
             nn.Conv2d(in_ch, out_ch, 3, padding=1),
             nn.BatchNorm2d(out_ch),
-            nn.ReLU(inplace=True),
+            nn.PReLU(out_ch),
             nn.Conv2d(out_ch, out_ch, 3, padding=1),
             nn.BatchNorm2d(out_ch),
-            nn.ReLU(inplace=True)
+            nn.PReLU(out_ch)
         )
 
     def forward(self, x):
@@ -138,11 +139,11 @@ class Doc_UNet(nn.Module):
         self.U_net2 = UNet(64 + n_classes, n_classes, need_feature_maps=False)
 
     def forward(self, x):
-        y1,feature_maps = self.U_net1(x)
+        y1, feature_maps = self.U_net1(x)
         x = torch.cat((feature_maps, y1), dim=1)
         # print("x:",x.shape)
         # print("y1:",y1.shape)
         y2 = self.U_net2(x)
         # print("y2:",y2.shape)
-        return torch.cat([y1, y2])
+        return y2
     
