@@ -1,7 +1,7 @@
 import torch, os
 from torch import nn
 from tqdm import tqdm
-from model import Doc_UNet
+from model import DocUNet, DocUSmallNet
 from dataset import Dataset
 
 class Loss(nn.Module):
@@ -64,13 +64,12 @@ def train(model, optimizer, scheduler, dataloaders_dict, epochs, device):
             print('Epoch:', epoch, 'Phase:', phase, 'Loss:', loss_per_epoch.mean())
         
         scheduler.step()
-        if phase == 'train':
-            torch.save(model.state_dict(), f'models/{epoch}.pth')
+        torch.save(model.state_dict(), f'models/{epoch}.pth')
             
 def main():
     os.makedirs('models', exist_ok=True)
     
-    model = Doc_UNet(3, 2)
+    model = DocUSmallNet(3, 2)
     device = torch.device("cuda:1" if torch.cuda.is_available() else 'cpu')
     optimizer = torch.optim.Adam(
         [p for p in model.parameters() if p.requires_grad], 
@@ -80,18 +79,18 @@ def main():
     
     train_dataset, val_dataset = torch.utils.data.random_split(
         dataset,
-        [int(len(dataset)*0.8), len(dataset) - int(len(dataset)*0.8)]
+        [int(len(dataset)*0.95), len(dataset) - int(len(dataset)*0.95)]
     )
     
     dataset = {'train': train_dataset, 'val': val_dataset}
     dataloader = {
         phase: torch.utils.data.DataLoader(
             dataset[phase], 
-            batch_size = 1, 
+            batch_size = 2, 
             shuffle = True, 
             drop_last = True,
             collate_fn=collate_fn,
-            num_workers=1,
+            num_workers=2,
             pin_memory=False,
         )
         

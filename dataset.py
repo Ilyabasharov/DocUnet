@@ -42,7 +42,7 @@ class Dataset(torch.utils.data.Dataset):
             if not os.path.exists(path):
                 raise Exception(f'Missing {path} in dataset')
                 
-        mask, image = resize_mask_and_image(mask, image, 272*1, 352*1)
+        mask, image = resize_mask_and_image(mask, image, 272*3, 352*3)
                 
         mask = torch.from_numpy(mask.transpose(2,0,1))
         image = torchvision.transforms.functional.to_tensor(image)
