@@ -16,7 +16,7 @@ class Loss(nn.Module):
         l1 = (pred[ind_gt & ind_pred] + 1).sum()
         
         ind_gt = ~ind_gt
-        l2 = (pred[ind_gt] - gt[ind_gt]).sum()
+        l2 = torch.abs(pred[ind_gt] - gt[ind_gt]).sum()
         
         return l2 + self.coef*l1
 
@@ -40,8 +40,8 @@ def train(model, optimizer, scheduler, dataloaders_dict, epochs, device):
     
     for epoch in range(epochs):
         for phase in dataloaders_dict:
-            model.train() if phase == 'train' else model.eval()
             
+            model.train() if phase == 'train' else model.eval()
             loss_per_epoch = 0
             
             for images, masks in tqdm(dataloaders_dict[phase], desc = phase):
@@ -49,17 +49,21 @@ def train(model, optimizer, scheduler, dataloaders_dict, epochs, device):
                 images = images.to(device)
                 gt = masks.to(device)
                 
+                optimizer.zero_grad()
+                
                 with torch.set_grad_enabled(phase == 'train'):
                     pred = model(images)
                     error = loss(gt, pred)
                     
                     if phase == 'train':
                         error.backward()
+                        optimizer.step()
                         
                     loss_per_epoch += error
                     
             print('Epoch:', epoch, 'Phase:', phase, 'Loss:', loss_per_epoch.mean())
         
+        scheduler.step()
         if phase == 'train':
             torch.save(model.state_dict(), f'models/{epoch}.pth')
             
