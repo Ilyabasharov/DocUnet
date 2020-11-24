@@ -1,8 +1,9 @@
-import torch
+import torch, os
 from torch import nn
 from tqdm import tqdm
 from model import Doc_UNet
 from dataset import Dataset
+
 
 def Loss(nn.Module)
     def __init__(self, coef: float=2.):
@@ -48,6 +49,8 @@ def train(model, optimizer, scheduler, dataloaders_dict, epochs, device):
             torch.save(model.state_dict(), f'models/{epoch}.pth')
             
 def main():
+    os.mkdirs('models', exist_ok=True)
+    
     model = Doc_UNet()
     device = torch.device("cuda:0" if torch.cuda.is_available() else 'cpu')
     optimizer = torch.optim.Adam(
